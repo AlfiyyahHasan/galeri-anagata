@@ -1,12 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, Heart, MessageCircle, Send, CornerDownRight, Sparkles, Trash2, Loader2 } from 'lucide-react';
 
-export default function PostDetail() {
-  const params = useParams();
-  const id = params?.id as string;
+export default function PostDetail({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const id = resolvedParams.id;
   const router = useRouter();
 
   const [post, setPost] = useState<any>(null);
@@ -17,8 +17,6 @@ export default function PostDetail() {
 
   // Ambil detail post langsung dari API Database Neon
   useEffect(() => {
-    if (!id) return;
-    
     async function fetchPostDetail() {
       try {
         const response = await fetch(`/api/posts/${id}`);
@@ -75,6 +73,7 @@ export default function PostDetail() {
     const updatedComments = [newCommentObj, ...(post.comments || [])];
     setPost({ ...post, comments: updatedComments });
     setNewComment("");
+    // Catatan: Jika ingin komentar tersimpan permanen di database, nanti kita bisa buatkan tabel comments terpisah.
   };
 
   const handleDeleteComment = (commentId: number) => {
