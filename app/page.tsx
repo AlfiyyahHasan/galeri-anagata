@@ -3,71 +3,92 @@ import { useState, useEffect } from 'react';
 import Navbar from "@/components/Navbar";
 import Link from 'next/link';
 import { Heart, MessageCircle, Sparkles, Trash2, Camera, ImagePlus } from "lucide-react";
+import { supabase } from '../supabase';
 
 export default function Home() {
   const [photos, setPhotos] = useState<any[]>([]);
 
   useEffect(() => {
-    const savedPhotos = localStorage.getItem('galeri_ppapp_photos');
-    if (savedPhotos) {
-      try {
-        setPhotos(JSON.parse(savedPhotos));
-      } catch (e) {
-        console.error(e);
+    async function fetchPhotos() {
+      const { data, error } = await supabase
+        .from('photos')
+        .select('*, comments(id)')
+        .order('id', { ascending: false });
+
+      if (error) {
+        console.error('Gagal memuat foto:', error);
+      } else if (data) {
+        const formatted = data.map((item: any) => ({
+          ...item,
+          commentCount: item.comments ? item.comments.length : 0
+        }));
+        setPhotos(formatted);
       }
     }
+
+    fetchPhotos();
   }, []);
 
-  const handleLikeCard = (id: string, e: React.MouseEvent) => {
+  const handleLikeCard = async (id: number, e: React.MouseEvent) => {
     e.preventDefault(); 
-    const updated = photos.map(p => {
-      if (p.id === id) {
-        const newIsLiked = !p.isLiked;
-        return {
-          ...p,
-          isLiked: newIsLiked,
-          likes: newIsLiked ? p.likes + 1 : p.likes - 1
-        };
-      }
-      return p;
-    });
-    setPhotos(updated);
-    localStorage.setItem('galeri_ppapp_photos', JSON.stringify(updated));
+    const photo = photos.find(p => p.id === id);
+    if (!photo) return;
+
+    const newIsLiked = !photo.is_liked;
+    const newLikes = newIsLiked ? photo.likes + 1 : photo.likes - 1;
+
+    setPhotos(photos.map(p => p.id === id ? { ...p, is_liked: newIsLiked, likes: newLikes } : p));
+
+    const { error } = await supabase
+      .from('photos')
+      .update({ is_liked: newIsLiked, likes: newLikes })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Gagal memperbarui like:', error);
+    }
   };
 
-  const handleDeletePost = (id: string, e: React.MouseEvent) => {
+  const handleDeletePost = async (id: number, e: React.MouseEvent) => {
     e.preventDefault();
     if (confirm('Yakin mau hapus kenangan ini dari galeri?')) {
-      const updated = photos.filter(p => p.id !== id);
-      setPhotos(updated);
-      localStorage.setItem('galeri_ppapp_photos', JSON.stringify(updated));
+      const { error } = await supabase
+        .from('photos')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Gagal menghapus foto:', error);
+      } else {
+        setPhotos(photos.filter(p => p.id !== id));
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 selection:bg-indigo-500 selection:text-white pb-32">
+    <div className="min-h-screen bg-[#030712] text-slate-100 selection:bg-indigo-500 selection:text-white pb-32 overflow-x-hidden">
       <Navbar />
       
-      {/* Hero Header Super Mewah */}
-      <div className="relative overflow-hidden pt-20 pb-24 px-4 text-center border-b border-slate-800/60 bg-gradient-to-b from-[#0a0f1d] via-[#050b14] to-[#030712]">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-blue-600/20 to-indigo-600/20 blur-[160px] rounded-full pointer-events-none" />
+      {/* Hero Header Responsif */}
+      <div className="relative overflow-hidden pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 text-center border-b border-slate-800/60 bg-gradient-to-b from-[#0a0f1d] via-[#050b14] to-[#030712]">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[700px] h-[200px] sm:h-[350px] bg-gradient-to-tr from-blue-600/20 to-indigo-600/20 blur-[120px] sm:blur-[160px] rounded-full pointer-events-none" />
         
-        <div className="max-w-3xl mx-auto relative z-10 space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold tracking-wider uppercase shadow-inner backdrop-blur-md">
-            <Sparkles size={14} className="animate-spin" />
+        <div className="max-w-3xl mx-auto relative z-10 space-y-4 sm:space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[11px] sm:text-xs font-semibold tracking-wider uppercase shadow-inner backdrop-blur-md">
+            <Sparkles size={14} className="animate-spin flex-shrink-0" />
             <span>Exclusive Internship Memories Space</span>
           </div>
           
-          <h1 className="text-4xl sm:text-7xl font-black tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent drop-shadow-sm">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent drop-shadow-sm px-2">
             Galeri Kenangan Kita ✨
           </h1>
           
-          <p className="text-slate-400 text-sm sm:text-base max-w-xl mx-auto font-normal leading-relaxed">
+          <p className="text-slate-400 text-xs sm:text-base max-w-xl mx-auto font-normal leading-relaxed px-4">
             Arsip digital penuh canda tawa, cerita perjuangan lembur, dan momen berharga masa magang yang terekam abadi.
           </p>
 
-          <div className="pt-4 flex justify-center gap-4">
-            <Link href="/upload" className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
+          <div className="pt-2 sm:pt-4 flex justify-center">
+            <Link href="/upload" className="w-full sm:w-auto justify-center px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
               <ImagePlus size={18} />
               <span>Unggah Kenangan Baru</span>
             </Link>
@@ -75,14 +96,14 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Grid Galeri */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
+      {/* Grid Galeri yang Dioptimalkan untuk HP, Tablet, & Laptop */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-10 sm:pt-16">
         {photos.length === 0 ? (
-          <div className="text-center py-28 bg-slate-900/40 border border-slate-800/80 rounded-3xl max-w-lg mx-auto backdrop-blur-xl shadow-2xl">
-            <div className="bg-indigo-500/10 text-indigo-400 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 border border-indigo-500/20 shadow-inner">
-              <Camera size={34} />
+          <div className="text-center py-20 sm:py-28 bg-slate-900/40 border border-slate-800/80 rounded-3xl max-w-lg mx-auto backdrop-blur-xl shadow-2xl px-6">
+            <div className="bg-indigo-500/10 text-indigo-400 w-16 sm:w-20 h-16 sm:h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 border border-indigo-500/20 shadow-inner">
+              <Camera size={30} />
             </div>
-            <h3 className="text-white font-extrabold text-lg">Belum Ada Kenangan Tersimpan</h3>
+            <h3 className="text-white font-extrabold text-base sm:text-lg">Belum Ada Kenangan Tersimpan</h3>
             <p className="text-xs text-slate-400 mt-2 max-w-xs mx-auto leading-relaxed">
               Galeri ini masih kosong. Jadilah yang pertama mengabadikan foto seru kalian di sini!
             </p>
@@ -91,55 +112,57 @@ export default function Home() {
             </Link>
           </div>
         ) : (
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-8 space-y-8">
+          /* Menggunakan breakpoints yang pas: 1 kolom di HP kecil, 2 kolom di tablet (md), 3 kolom di laptop (lg), dan 4 kolom di layar sangat besar (xl) */
+          <div className="columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 lg:gap-8 [column-fill:_balance]">
             {photos.map((item) => (
               <div 
                 key={item.id} 
-                className="relative break-inside-avoid bg-slate-900/80 backdrop-blur-2xl rounded-3xl overflow-hidden border border-slate-800 hover:border-indigo-500/50 shadow-2xl transition-all duration-500 group hover:-translate-y-1"
+                className="relative break-inside-avoid mb-4 sm:mb-6 lg:mb-8 bg-slate-900/80 backdrop-blur-2xl rounded-3xl overflow-hidden border border-slate-800 hover:border-indigo-500/50 shadow-2xl transition-all duration-500 group"
               >
-                {/* Tombol Hapus Mengambang */}
+                {/* Tombol Hapus Mengambang (Selalu muncul di layar sentuh HP/Tablet agar mudah diklik, dan muncul saat hover di laptop) */}
                 <button 
                   onClick={(e) => handleDeletePost(item.id, e)}
                   title="Hapus Postingan"
-                  className="absolute top-3.5 right-3.5 z-20 bg-slate-950/80 hover:bg-rose-600 text-slate-300 hover:text-white p-3 rounded-full backdrop-blur-xl opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-xl border border-slate-700/50 cursor-pointer"
+                  className="absolute top-3.5 right-3.5 z-20 bg-slate-950/80 sm:opacity-0 group-hover:opacity-100 hover:bg-rose-600 text-slate-300 hover:text-white p-2.5 sm:p-3 rounded-full backdrop-blur-xl transition-all duration-300 shadow-xl border border-slate-700/50 cursor-pointer"
                 >
                   <Trash2 size={16} />
                 </button>
 
                 <Link href={`/posts/${item.id}`} className="block">
-                  <div className="relative overflow-hidden bg-slate-950 aspect-[4/3] sm:aspect-auto">
+                  <div className="relative overflow-hidden bg-slate-950 w-full">
                     <img 
                       src={item.image} 
                       alt={item.title} 
-                      className="w-full object-cover group-hover:scale-105 transition-transform duration-700 max-h-[440px]" 
+                      className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-700 max-h-[500px]" 
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-5">
-                      <span className="text-xs text-slate-200 font-semibold bg-indigo-600/90 backdrop-blur-md px-4 py-2 rounded-2xl border border-indigo-400/30 shadow-xl">
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4 sm:p-5">
+                      <span className="text-xs text-slate-200 font-semibold bg-indigo-600/90 backdrop-blur-md px-3 sm:px-4 py-2 rounded-2xl border border-indigo-400/30 shadow-xl">
                         Buka Detail & Diskusi 💬
                       </span>
                     </div>
                   </div>
                   
-                  <div className="p-6">
-                    <h2 className="font-bold text-slate-100 text-lg group-hover:text-indigo-400 transition-colors line-clamp-1">
+                  <div className="p-4 sm:p-6">
+                    <h2 className="font-bold text-slate-100 text-base sm:text-lg group-hover:text-indigo-400 transition-colors line-clamp-1">
                       {item.title}
                     </h2>
                     <p className="text-xs text-slate-400 mt-2 flex items-center gap-2 font-medium">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                      Oleh: {item.author}
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse flex-shrink-0"></span>
+                      <span className="truncate">Oleh: {item.author}</span>
                     </p>
                     
-                    <div className="flex items-center gap-6 mt-6 pt-4 border-t border-slate-800/80 text-xs font-semibold">
+                    <div className="flex items-center justify-between sm:justify-start sm:gap-6 mt-4 sm:mt-6 pt-4 border-t border-slate-800/80 text-xs font-semibold">
                       <button 
                         onClick={(e) => handleLikeCard(item.id, e)}
-                        className={`flex items-center gap-2 transition-all ${item.isLiked ? 'text-rose-500 scale-105 font-bold' : 'text-slate-400 hover:text-rose-500'}`}
+                        className={`flex items-center gap-1.5 sm:gap-2 transition-all ${item.is_liked ? 'text-rose-500 scale-105 font-bold' : 'text-slate-400 hover:text-rose-500'}`}
                       >
-                        <Heart size={18} className={item.isLiked ? 'fill-rose-500' : ''} />
+                        <Heart size={18} className={item.is_liked ? 'fill-rose-500 flex-shrink-0' : 'flex-shrink-0'} />
                         <span>{item.likes || 0} Suka</span>
                       </button>
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <MessageCircle size={18} />
-                        <span>{item.comments?.length || 0} Komentar</span>
+                      
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-400">
+                        <MessageCircle size={18} className="flex-shrink-0" />
+                        <span>{item.commentCount || 0} Komentar</span>
                       </div>
                     </div>
                   </div>

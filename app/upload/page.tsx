@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Sparkles, ImagePlus, CheckCircle2, CloudUpload, X } from 'lucide-react';
+import { ArrowLeft, Sparkles, ImagePlus, CheckCircle2, CloudUpload } from 'lucide-react';
+import { supabase } from '../../supabase'; // Menghubungkan ke file supabase.js di luar
 
 export default function UploadPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function UploadPage() {
   const [description, setDescription] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fungsi konversi file asli dari perangkat/folder ke base64
   const processFile = (file: File) => {
@@ -37,30 +39,37 @@ export default function UploadPage() {
     if (file) processFile(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fungsi simpan ke database Supabase
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !author || !imagePreview) {
       alert('Mohon lengkapi Judul, Inisial/Nama, dan pilih Fotonya terlebih dahulu ya! ✨');
       return;
     }
 
-    const newPhoto = {
-      id: Date.now().toString(),
-      title,
-      image: imagePreview,
-      author,
-      description,
-      likes: 0,
-      isLiked: false,
-      comments: []
-    };
+    setIsSubmitting(true);
 
-    const existing = localStorage.getItem('galeri_ppapp_photos');
-    const parsed = existing ? JSON.parse(existing) : [];
-    localStorage.setItem('galeri_ppapp_photos', JSON.stringify([newPhoto, ...parsed]));
+    // Menyimpan data ke tabel photos di Supabase
+    const { error } = await supabase.from('photos').insert([
+      {
+        title: title,
+        author: author,
+        image: imagePreview,
+        story: description, // Sesuai kolom di database Supabase kamu
+        likes: 0,
+        is_liked: false
+      }
+    ]);
 
-    alert('Yeay! Kenangan berhasil diunggah ke galeri utama! 🎉');
-    router.push('/');
+    setIsSubmitting(false);
+
+    if (error) {
+      console.error('Gagal mengunggah ke Supabase:', error);
+      alert('Terjadi kesalahan saat menyimpan ke database. Coba lagi ya!');
+    } else {
+      alert('Yeay! Kenangan berhasil diunggah ke galeri utama dan tersimpan di cloud! 🎉');
+      router.push('/');
+    }
   };
 
   return (
@@ -199,10 +208,11 @@ export default function UploadPage() {
             {/* Tombol Submit Wah */}
             <button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-500 hover:from-indigo-500 hover:to-blue-400 text-white font-black py-4.5 rounded-2xl text-sm transition-all shadow-xl shadow-indigo-600/40 active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer tracking-wide uppercase border border-indigo-400/30"
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-500 hover:from-indigo-500 hover:to-blue-400 text-white font-black py-4.5 rounded-2xl text-sm transition-all shadow-xl shadow-indigo-600/40 active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer tracking-wide uppercase border border-indigo-400/30 disabled:opacity-50"
             >
-              <Sparkles size={18} className="animate-spin" />
-              <span>Publikasikan ke Galeri Utama</span>
+              <Sparkles size={18} className={isSubmitting ? "animate-spin" : ""} />
+              <span>{isSubmitting ? 'Menyimpan ke Cloud...' : 'Publikasikan ke Galeri Utama'}</span>
             </button>
           </form>
         </div>
