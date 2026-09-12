@@ -3,7 +3,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Sparkles, ImagePlus, CheckCircle2, CloudUpload } from 'lucide-react';
-import { supabase } from '../../supabase'; // Menghubungkan ke file supabase.js di luar
 
 export default function UploadPage() {
   const router = useRouter();
@@ -14,7 +13,6 @@ export default function UploadPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fungsi konversi file asli dari perangkat/folder ke base64
   const processFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Waduh, itu bukan file gambar! Harap pilih file foto (JPG, PNG, WEBP).');
@@ -39,7 +37,6 @@ export default function UploadPage() {
     if (file) processFile(file);
   };
 
-  // Fungsi simpan ke database Supabase
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !author || !imagePreview) {
@@ -49,32 +46,38 @@ export default function UploadPage() {
 
     setIsSubmitting(true);
 
-    // Menyimpan data ke tabel photos di Supabase
-    const { error } = await supabase.from('photos').insert([
-      {
-        title: title,
-        author: author,
-        image: imagePreview,
-        story: description, // Sesuai kolom di database Supabase kamu
-        likes: 0,
-        is_liked: false
+    try {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: title,
+          author: author,
+          story: description,
+          image_url: imagePreview,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Gagal menyimpan ke database');
       }
-    ]);
 
-    setIsSubmitting(false);
-
-    if (error) {
-      console.error('Gagal mengunggah ke Supabase:', error);
-      alert('Terjadi kesalahan saat menyimpan ke database. Coba lagi ya!');
-    } else {
-      alert('Yeay! Kenangan berhasil diunggah ke galeri utama dan tersimpan di cloud! 🎉');
+      alert('Yeay! Kenangan berhasil diunggah ke galeri utama dan tersimpan di Neon! 🎉');
       router.push('/');
+    } catch (error) {
+      console.error('Gagal mengunggah:', error);
+      alert('Terjadi kesalahan saat menyimpan ke database. Coba lagi ya!');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 py-16 px-4 sm:px-6 relative overflow-hidden flex items-center justify-center">
-      {/* Background Neon Glow Effects yang Super Wah */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/15 blur-[160px] rounded-full pointer-events-none animate-pulse" />
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-600/15 blur-[160px] rounded-full pointer-events-none" />
 
@@ -87,10 +90,7 @@ export default function UploadPage() {
           <span>Kembali ke Beranda Galeri</span>
         </Link>
 
-        {/* Kotak Utama dengan Efek Kaca Futuristik */}
         <div className="bg-slate-900/90 backdrop-blur-3xl rounded-[2.5rem] border border-slate-700/80 p-8 sm:p-10 shadow-[0_0_50px_rgba(79,70,229,0.15)] relative overflow-hidden">
-          
-          {/* Header Card */}
           <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-800">
             <div className="bg-gradient-to-tr from-indigo-600 via-blue-600 to-indigo-500 text-white p-4 rounded-3xl shadow-xl shadow-indigo-600/30">
               <CloudUpload size={32} />
@@ -106,8 +106,6 @@ export default function UploadPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Area Drag and Drop / Pilih Folder File Asli */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
                 File Foto Perangkat / Folder 📂
@@ -161,7 +159,6 @@ export default function UploadPage() {
               </div>
             </div>
 
-            {/* Input Fields Lainnya */}
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
@@ -205,7 +202,6 @@ export default function UploadPage() {
               </div>
             </div>
 
-            {/* Tombol Submit Wah */}
             <button 
               type="submit" 
               disabled={isSubmitting}
