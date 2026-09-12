@@ -2,10 +2,19 @@
 import { useState, useEffect } from 'react';
 import Navbar from "@/components/Navbar";
 import Link from 'next/link';
-import { Heart, MessageCircle, Sparkles, Trash2, Camera, ImagePlus } from "lucide-react";
+import { Heart, MessageCircle, Sparkles, Trash2, Camera, ImagePlus, Loader2 } from "lucide-react";
 
 export default function Home() {
-  const [photos, setPhotos] = useState<any[]>([]);
+  // Ambil data awal dari localStorage jika ada agar langsung tampil tanpa menunggu
+  const [photos, setPhotos] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cache_photos');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  
+  const [isLoading, setIsLoading] = useState<boolean>(photos.length === 0);
 
   useEffect(() => {
     async function fetchPhotos() {
@@ -14,11 +23,13 @@ export default function Home() {
         const result = await response.json();
         if (result.success && result.data) {
           setPhotos(result.data);
-        } else {
-          console.error('Gagal memuat foto dari database');
+          // Simpan ke localStorage agar instan saat refresh berikutnya
+          localStorage.setItem('cache_photos', JSON.stringify(result.data));
         }
       } catch (error) {
         console.error('Terjadi kesalahan saat memuat foto:', error);
+      } finally {
+        setIsLoading(false);
       }
     }
 
@@ -33,7 +44,9 @@ export default function Home() {
     const newIsLiked = !photo.is_liked;
     const newLikes = newIsLiked ? (photo.likes || 0) + 1 : Math.max(0, (photo.likes || 0) - 1);
 
-    setPhotos(photos.map(p => p.id === id ? { ...p, is_liked: newIsLiked, likes: newLikes } : p));
+    const updatedPhotos = photos.map(p => p.id === id ? { ...p, is_liked: newIsLiked, likes: newLikes } : p);
+    setPhotos(updatedPhotos);
+    localStorage.setItem('cache_photos', JSON.stringify(updatedPhotos));
 
     try {
       await fetch(`/api/posts/${id}`, {
@@ -53,7 +66,9 @@ export default function Home() {
         const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
         const result = await res.json();
         if (result.success) {
-          setPhotos(photos.filter(p => p.id !== id));
+          const filtered = photos.filter(p => p.id !== id);
+          setPhotos(filtered);
+          localStorage.setItem('cache_photos', JSON.stringify(filtered));
         } else {
           alert('Gagal menghapus postingan');
         }
@@ -94,9 +109,16 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Grid Galeri yang Dioptimalkan untuk HP, Tablet, & Laptop */}
+      {/* Grid Galeri yang Dioptimalkan */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-10 sm:pt-16">
-        {photos.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-28 flex flex-col items-center justify-center space-y-4">
+            <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
+            <p className="text-sm text-slate-400 font-medium tracking-wide">
+              Menarik kenangan indah dari server... Sebentar ya! ✨
+            </p>
+          </div>
+        ) : photos.length === 0 ? (
           <div className="text-center py-20 sm:py-28 bg-slate-900/40 border border-slate-800/80 rounded-3xl max-w-lg mx-auto backdrop-blur-xl shadow-2xl px-6">
             <div className="bg-indigo-500/10 text-indigo-400 w-16 sm:w-20 h-16 sm:h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 border border-indigo-500/20 shadow-inner">
               <Camera size={30} />
