@@ -7,9 +7,12 @@ const pool = new Pool({
 });
 
 // GET: Mengambil detail satu postingan berdasarkan ID
-export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    const { id } = await context.params;
+    const { id } = params;
     const postResult = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
     
     if (postResult.rows.length === 0) {
@@ -27,9 +30,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 }
 
 // PATCH: Untuk Like atau Update
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    const { id } = await context.params;
+    const { id } = params;
     const body = await request.json();
     const { is_liked, likes } = body;
 
@@ -45,9 +51,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 }
 
 // DELETE: Untuk Hapus Postingan
-export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    const { id } = await context.params;
+    const { id } = params;
     await pool.query('DELETE FROM posts WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
   } catch (error: any) {
