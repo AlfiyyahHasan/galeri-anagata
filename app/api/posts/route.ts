@@ -9,10 +9,12 @@ const pool = new Pool({
 // GET: Mengambil detail satu postingan berdasarkan ID
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const params = await props.params;
+    const id = params.id;
+    
     const postResult = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
     
     if (postResult.rows.length === 0) {
@@ -32,10 +34,12 @@ export async function GET(
 // PATCH: Untuk Like atau Update
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const params = await props.params;
+    const id = params.id;
+    
     const body = await request.json();
     const { is_liked, likes } = body;
 
@@ -53,10 +57,12 @@ export async function PATCH(
 // DELETE: Untuk Hapus Postingan
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const params = await props.params;
+    const id = params.id;
+    
     await pool.query('DELETE FROM posts WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
   } catch (error: any) {
