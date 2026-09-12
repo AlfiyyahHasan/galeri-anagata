@@ -6,34 +6,51 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Fungsi untuk mengambil semua data post/foto
-export async function GET() {
+// GET: Mengambil detail satu postingan berdasarkan ID
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const result = await pool.query('SELECT * FROM posts ORDER BY id DESC');
-    return NextResponse.json({ success: true, data: result.rows });
+    const { id } = await context.params;
+    const postResult = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
+    
+    if (postResult.rows.length === 0) {
+      return NextResponse.json({ success: false, error: 'Postingan tidak ditemukan' }, { status: 404 });
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      data: postResult.rows[0] 
+    });
   } catch (error: any) {
     console.error('Database Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-// Fungsi untuk menyimpan data post/foto baru
-export async function POST(request: Request) {
+// PATCH: Untuk Like atau Update
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const body = await request.json();
-    const { title, author, story, image_url } = body;
+    const { is_liked, likes } = body;
 
-    const query = `
-      INSERT INTO posts (title, author, story, image_url)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *;
-    `;
-    const values = [title, author, story, image_url];
-    const result = await pool.query(query, values);
+    const result = await pool.query(
+      'UPDATE posts SET is_liked = $1, likes = $2 WHERE id = $3 RETURNING *',
+      [is_liked, likes, id]
+    );
 
     return NextResponse.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
-    console.error('Database Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE: Untuk Hapus Postingan
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    await pool.query('DELETE FROM posts WHERE id = $1', [id]);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
