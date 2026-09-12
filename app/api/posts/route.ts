@@ -6,6 +6,18 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Fungsi untuk mengambil semua data post/foto
+export async function GET() {
+  try {
+    const result = await pool.query('SELECT * FROM posts ORDER BY id DESC');
+    return NextResponse.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    console.error('Database Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+// Fungsi untuk menyimpan data post/foto baru
 export async function POST(request: Request) {
   try {
     const body = await request.json();

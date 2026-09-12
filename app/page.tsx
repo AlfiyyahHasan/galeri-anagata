@@ -3,26 +3,22 @@ import { useState, useEffect } from 'react';
 import Navbar from "@/components/Navbar";
 import Link from 'next/link';
 import { Heart, MessageCircle, Sparkles, Trash2, Camera, ImagePlus } from "lucide-react";
-import { supabase } from '../supabase';
 
 export default function Home() {
   const [photos, setPhotos] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchPhotos() {
-      const { data, error } = await supabase
-        .from('photos')
-        .select('*, comments(id)')
-        .order('id', { ascending: false });
-
-      if (error) {
-        console.error('Gagal memuat foto:', error);
-      } else if (data) {
-        const formatted = data.map((item: any) => ({
-          ...item,
-          commentCount: item.comments ? item.comments.length : 0
-        }));
-        setPhotos(formatted);
+      try {
+        const response = await fetch('/api/posts');
+        const result = await response.json();
+        if (result.success && result.data) {
+          setPhotos(result.data);
+        } else {
+          console.error('Gagal memuat foto dari database');
+        }
+      } catch (error) {
+        console.error('Terjadi kesalahan saat memuat foto:', error);
       }
     }
 
@@ -35,16 +31,17 @@ export default function Home() {
     if (!photo) return;
 
     const newIsLiked = !photo.is_liked;
-    const newLikes = newIsLiked ? photo.likes + 1 : photo.likes - 1;
+    const newLikes = newIsLiked ? (photo.likes || 0) + 1 : Math.max(0, (photo.likes || 0) - 1);
 
     setPhotos(photos.map(p => p.id === id ? { ...p, is_liked: newIsLiked, likes: newLikes } : p));
 
-    const { error } = await supabase
-      .from('photos')
-      .update({ is_liked: newIsLiked, likes: newLikes })
-      .eq('id', id);
-
-    if (error) {
+    try {
+      await fetch(`/api/posts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_liked: newIsLiked, likes: newLikes }),
+      });
+    } catch (error) {
       console.error('Gagal memperbarui like:', error);
     }
   };
@@ -52,15 +49,16 @@ export default function Home() {
   const handleDeletePost = async (id: number, e: React.MouseEvent) => {
     e.preventDefault();
     if (confirm('Yakin mau hapus kenangan ini dari galeri?')) {
-      const { error } = await supabase
-        .from('photos')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
+      try {
+        const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          setPhotos(photos.filter(p => p.id !== id));
+        } else {
+          alert('Gagal menghapus postingan');
+        }
+      } catch (error) {
         console.error('Gagal menghapus foto:', error);
-      } else {
-        setPhotos(photos.filter(p => p.id !== id));
       }
     }
   };
@@ -112,14 +110,13 @@ export default function Home() {
             </Link>
           </div>
         ) : (
-          /* Menggunakan breakpoints yang pas: 1 kolom di HP kecil, 2 kolom di tablet (md), 3 kolom di laptop (lg), dan 4 kolom di layar sangat besar (xl) */
           <div className="columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 lg:gap-8 [column-fill:_balance]">
             {photos.map((item) => (
               <div 
                 key={item.id} 
                 className="relative break-inside-avoid mb-4 sm:mb-6 lg:mb-8 bg-slate-900/80 backdrop-blur-2xl rounded-3xl overflow-hidden border border-slate-800 hover:border-indigo-500/50 shadow-2xl transition-all duration-500 group"
               >
-                {/* Tombol Hapus Mengambang (Selalu muncul di layar sentuh HP/Tablet agar mudah diklik, dan muncul saat hover di laptop) */}
+                {/* Tombol Hapus Mengambang */}
                 <button 
                   onClick={(e) => handleDeletePost(item.id, e)}
                   title="Hapus Postingan"
@@ -131,7 +128,7 @@ export default function Home() {
                 <Link href={`/posts/${item.id}`} className="block">
                   <div className="relative overflow-hidden bg-slate-950 w-full">
                     <img 
-                      src={item.image} 
+                      src={item.image_url} 
                       alt={item.title} 
                       className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-700 max-h-[500px]" 
                     />
